@@ -1,3 +1,7 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import charConfig from './character-config';
+
 const { useState, useEffect, useRef, useMemo } = React;
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
@@ -8,9 +12,9 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "showDebug": false
 }/*EDITMODE-END*/;
 
-// grid: rows = pitch (0:上向き → 4:下向き), cols = yaw (0:左向き → 4:右向き)
-const ROWS = 5, COLS = 5;
-const SRC = (r, c) => `slices2/A/r${r}c${c}.webp`;
+const { rows: ROWS, cols: COLS } = charConfig;
+const SRC = (r, c) => charConfig.src(charConfig.sheets.eyesOpen.close, r, c);
+const BLINK_SRC = (r, c) => charConfig.src(charConfig.sheets.eyesClosed.close, r, c);
 
 const BG_OPTIONS = ['#FFF8EE', '#FDEFEF', '#EEF4FB', '#2B2926'];
 
@@ -156,7 +160,7 @@ function App() {
         ))}
         {blink ? (
           <img
-            src={`slices2/D/r${cell.r}c${cell.c}.webp`}
+            src={BLINK_SRC(cell.r, cell.c)}
             alt=""
             draggable="false"
             style={{
@@ -175,7 +179,7 @@ function App() {
         <div style={{ fontSize: 'clamp(12px, 1.6vmin, 16px)', color: subColor, marginTop: 6, letterSpacing: '0.08em' }}>マウスを動かすと こっちを見るよ</div>
       </div>
 
-      <a href="トマリトーク.html" style={{
+      <a href="talk.html" style={{
         position: 'absolute', top: 18, right: 18, fontSize: 13, fontWeight: 700,
         color: subColor, textDecoration: 'none', letterSpacing: '0.06em'
       }}>口パク版 →</a>

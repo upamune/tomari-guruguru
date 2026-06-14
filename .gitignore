@@ -7,5 +7,9 @@ uploads/
 *.xcf
 __pycache__/
 *.pyc
+node_modules/
+dist/
+public/*
+!public/slices2/
 .DS_Store
 Thumbs.db
