@@ -177,23 +177,59 @@ const __TWEAKS_STYLE = `
     filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
 `;
 
+function __twkCoerceQueryValue(raw, fallback) {
+  if (typeof fallback === 'boolean') return raw === '1' || raw === 'true';
+  if (typeof fallback === 'number') {
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : fallback;
+  }
+  return raw;
+}
+
+function __twkValuesFromQuery(defaults) {
+  const params = new URLSearchParams(window.location.search);
+  const values = { ...defaults };
+  for (const key of Object.keys(defaults)) {
+    if (params.has(key)) values[key] = __twkCoerceQueryValue(params.get(key), defaults[key]);
+  }
+  return values;
+}
+
+function __twkWriteQuery(edits, defaults) {
+  const url = new URL(window.location.href);
+  for (const [key, value] of Object.entries(edits)) {
+    if (!(key in defaults)) continue;
+    if (value === defaults[key]) url.searchParams.delete(key);
+    else url.searchParams.set(key, String(value));
+  }
+  window.history.replaceState(null, '', url);
+}
+
 // ── useTweaks ───────────────────────────────────────────────────────────────
-// Single source of truth for tweak values. setTweak persists via the host
-// (__edit_mode_set_keys → host rewrites the EDITMODE block on disk).
+// Single source of truth for tweak values. Query parameters override defaults,
+// and user changes are mirrored back into the URL.
 function useTweaks(defaults) {
-  const [values, setValues] = React.useState(defaults);
+  const [values, setValues] = React.useState(() => __twkValuesFromQuery(defaults));
+
+  React.useEffect(() => {
+    const onPopState = () => setValues(__twkValuesFromQuery(defaults));
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [defaults]);
+
   // Accepts either setTweak('key', value) or setTweak({ key: value, ... }) so a
   // useState-style call doesn't write a "[object Object]" key into the persisted
   // JSON block.
   const setTweak = React.useCallback((keyOrEdits, val) => {
     const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
       ? keyOrEdits : { [keyOrEdits]: val };
+    __twkWriteQuery(edits, defaults);
     setValues((prev) => ({ ...prev, ...edits }));
     window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*');
     // Same-window signal so in-page listeners (deck-stage rail thumbnails)
     // can react — the parent message only reaches the host, not peers.
     window.dispatchEvent(new CustomEvent('tweakchange', { detail: edits }));
-  }, []);
+  }, [defaults]);
   return [values, setTweak];
 }
 

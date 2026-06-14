@@ -28,18 +28,20 @@ const SHEETS = [
 ];
 const sheetFor = (eyesClosed, mouth) => SHEETS[(eyesClosed ? 3 : 0) + mouth];
 const BG_OPTIONS = ['#FFF8EE', '#FDEFEF', '#EEF4FB', '#2B2926'];
-const CHARACTER_STORAGE_KEY = 'tomari-guruguru-character';
 
 function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
 
 function loadCharacterId() {
-  try {
-    const saved = window.localStorage.getItem(CHARACTER_STORAGE_KEY);
-    if (charConfig.characters.some((character) => character.id === saved)) return saved;
-  } catch {
-    // localStorage may be unavailable in restricted browser contexts.
-  }
+  const id = new URLSearchParams(window.location.search).get('character');
+  if (charConfig.characters.some((character) => character.id === id)) return id;
   return charConfig.defaultCharacterId;
+}
+
+function setQueryParam(key, value, defaultValue) {
+  const url = new URL(window.location.href);
+  if (value === defaultValue) url.searchParams.delete(key);
+  else url.searchParams.set(key, value);
+  window.history.replaceState(null, '', url);
 }
 
 // ---- 音声エンジン ----
@@ -97,6 +99,7 @@ function makeAudioEngine() {
 function App() {
   const [t, setTweak] = useTweaks(TALK_DEFAULTS);
   const [characterId, setCharacterId] = useState(loadCharacterId);
+  const [queryString, setQueryString] = useState(window.location.search);
   const [assetMissing, setAssetMissing] = useState(false);
   const [cell, setCell] = useState({ r: 2, c: 2 });
   const [mouth, setMouth] = useState(0);        // 0:とじ 1:中間 2:開け
@@ -119,12 +122,22 @@ function App() {
 
   useEffect(() => {
     setAssetMissing(false);
-    try {
-      window.localStorage.setItem(CHARACTER_STORAGE_KEY, characterId);
-    } catch {
-      // Ignore storage failures; the selector still works for this session.
-    }
+    setQueryParam('character', characterId, charConfig.defaultCharacterId);
+    setQueryString(window.location.search);
   }, [characterId]);
+
+  useEffect(() => {
+    const syncFromQuery = () => {
+      setCharacterId(loadCharacterId());
+      setQueryString(window.location.search);
+    };
+    window.addEventListener('popstate', syncFromQuery);
+    window.addEventListener('tweakchange', syncFromQuery);
+    return () => {
+      window.removeEventListener('popstate', syncFromQuery);
+      window.removeEventListener('tweakchange', syncFromQuery);
+    };
+  }, []);
 
   // マウス追従
   useEffect(() => {
@@ -350,7 +363,7 @@ function App() {
         display: fileName ? 'block' : 'none', cursor: 'default'
       }}></audio>
 
-      <a href="guruguru.html" style={{
+      <a href={`guruguru.html${queryString}`} style={{
         position: 'absolute', top: 18, left: 18, fontSize: 13, fontWeight: 700,
         color: subColor, textDecoration: 'none', letterSpacing: '0.06em'
       }}>← ぐるぐる版</a>
