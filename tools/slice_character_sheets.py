@@ -78,6 +78,47 @@ def decode_rgba(path: Path, target_size: int | None = None) -> bytes:
     return run(cmd)
 
 
+def remove_background_color(
+    data: bytes,
+    width: int,
+    height: int,
+    tolerance: int,
+    gray_min: int,
+    gray_max: int,
+    gray_delta: int,
+) -> bytes:
+    """Make background-like pixels transparent.
+
+    Generated sheets can arrive as RGB images with a flat gray background
+    instead of alpha. The top-left color catches the main fill, while the
+    neutral-gray range catches subtle resampling bands in the same background.
+    """
+
+    if not data:
+        return data
+
+    bg_r = data[0]
+    bg_g = data[1]
+    bg_b = data[2]
+    limit = tolerance * tolerance
+    out = bytearray(data)
+    for i in range(0, width * height * 4, 4):
+        r = out[i]
+        g = out[i + 1]
+        b = out[i + 2]
+        dr = out[i] - bg_r
+        dg = out[i + 1] - bg_g
+        db = out[i + 2] - bg_b
+        mx = max(r, g, b)
+        mn = min(r, g, b)
+        mean = (r + g + b) // 3
+        is_key_color = dr * dr + dg * dg + db * db <= limit
+        is_neutral_gray = mx - mn <= gray_delta and gray_min <= mean <= gray_max
+        if is_key_color or is_neutral_gray:
+            out[i + 3] = 0
+    return bytes(out)
+
+
 class UnionFind:
     def __init__(self) -> None:
         self.parent: list[int] = []
@@ -238,6 +279,13 @@ def assign_components_to_cells(
     }
     for comp_id, comp in components.items():
         if comp.area < min_area:
+            continue
+        bbox_w = comp.max_x - comp.min_x + 1
+        bbox_h = comp.max_y - comp.min_y + 1
+        # Some generated RGB sheets contain long horizontal compression or UI
+        # bands. They are large enough to pass min_area, but too flat to be a
+        # character part.
+        if bbox_w >= cell * 0.7 and bbox_h <= cell * 0.25:
             continue
         cx, cy = comp.center
         col = min(4, max(0, round((cx - cell / 2) / cell)))
@@ -501,7 +549,7 @@ def main() -> None:
     parser.add_argument("--source", default="新キャラ資料", type=Path)
     parser.add_argument("--sheets-out", default="sheets", type=Path)
     parser.add_argument("--uploads-out", default="uploads", type=Path)
-    parser.add_argument("--slices-out", default="public/slices2", type=Path)
+    parser.add_argument("--slices-out", default="public/characters/upamune/slices", type=Path)
     parser.add_argument("--cell", default=900, type=int)
     parser.add_argument("--canvas", default=1200, type=int)
     parser.add_argument("--anchor-x", default=600, type=int)
@@ -517,6 +565,16 @@ def main() -> None:
     parser.add_argument("--gray-residue-min", default=90, type=int)
     parser.add_argument("--gray-residue-max", default=205, type=int)
     parser.add_argument("--gray-residue-delta", default=14, type=int)
+    parser.add_argument(
+        "--remove-bg-color",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Make pixels close to the top-left background color transparent before slicing.",
+    )
+    parser.add_argument("--bg-color-tolerance", default=32, type=int)
+    parser.add_argument("--bg-gray-min", default=120, type=int)
+    parser.add_argument("--bg-gray-max", default=222, type=int)
+    parser.add_argument("--bg-gray-delta", default=18, type=int)
     parser.add_argument("--row-threshold", default=20, type=int)
     parser.add_argument("--row-margin", default=8, type=int)
     parser.add_argument("--format", default="webp", choices=["png", "webp"])
@@ -572,6 +630,16 @@ def main() -> None:
             continue
 
         data = decode_rgba(src, target_size=resize_target)
+        if args.remove_bg_color:
+            data = remove_background_color(
+                data,
+                w,
+                h,
+                args.bg_color_tolerance,
+                args.bg_gray_min,
+                args.bg_gray_max,
+                args.bg_gray_delta,
+            )
         if args.component_mode:
             components = components_from_sheet(
                 data,

@@ -27,10 +27,20 @@ const SHEETS = [
   charConfig.sheets.eyesClosed.open,  // F
 ];
 const sheetFor = (eyesClosed, mouth) => SHEETS[(eyesClosed ? 3 : 0) + mouth];
-const SRC = (sheet, r, c) => charConfig.src(sheet, r, c);
 const BG_OPTIONS = ['#FFF8EE', '#FDEFEF', '#EEF4FB', '#2B2926'];
+const CHARACTER_STORAGE_KEY = 'tomari-guruguru-character';
 
 function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+
+function loadCharacterId() {
+  try {
+    const saved = window.localStorage.getItem(CHARACTER_STORAGE_KEY);
+    if (charConfig.characters.some((character) => character.id === saved)) return saved;
+  } catch {
+    // localStorage may be unavailable in restricted browser contexts.
+  }
+  return charConfig.defaultCharacterId;
+}
 
 // ---- 音声エンジン ----
 function makeAudioEngine() {
@@ -86,6 +96,8 @@ function makeAudioEngine() {
 
 function App() {
   const [t, setTweak] = useTweaks(TALK_DEFAULTS);
+  const [characterId, setCharacterId] = useState(loadCharacterId);
+  const [assetMissing, setAssetMissing] = useState(false);
   const [cell, setCell] = useState({ r: 2, c: 2 });
   const [mouth, setMouth] = useState(0);        // 0:とじ 1:中間 2:開け
   const [blink, setBlink] = useState(false);
@@ -102,6 +114,17 @@ function App() {
   const env = useRef(0);
   const tweaksRef = useRef(t);
   tweaksRef.current = t;
+  const character = charConfig.getCharacter(characterId);
+  const SRC = (sheet, r, c) => charConfig.src(character, sheet, r, c);
+
+  useEffect(() => {
+    setAssetMissing(false);
+    try {
+      window.localStorage.setItem(CHARACTER_STORAGE_KEY, characterId);
+    } catch {
+      // Ignore storage failures; the selector still works for this session.
+    }
+  }, [characterId]);
 
   // マウス追従
   useEffect(() => {
@@ -244,16 +267,28 @@ function App() {
         userSelect: 'none', touchAction: 'none'
       }}>
         {allFrames.map(({ s, r, c }) => (
-          <img key={`${s}${r}${c}`} src={SRC(s, r, c)} alt="" draggable="false" style={{
+          <img key={`${character.id}${s}${r}${c}`} src={SRC(s, r, c)} alt="" draggable="false" onError={() => setAssetMissing(true)} style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
             opacity: s === activeSheet && r === cell.r && c === cell.c ? 1 : 0,
             pointerEvents: 'none'
           }}></img>
         ))}
+        {assetMissing ? (
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: `1px dashed ${subColor}`, borderRadius: 12,
+            color: subColor, fontSize: 'clamp(13px, 2vmin, 18px)', fontWeight: 700,
+            textAlign: 'center', padding: 24, boxSizing: 'border-box',
+            pointerEvents: 'none'
+          }}>
+            {character.label} の画像準備中
+          </div>
+        ) : null}
       </div>
 
       <div style={{ position: 'absolute', top: '3.5vh', left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' }}>
-        <div style={{ fontSize: 'clamp(18px, 2.4vmin, 26px)', fontWeight: 700, color: inkColor, letterSpacing: '0.18em' }}>トマリトーク</div>
+        <div style={{ fontSize: 'clamp(18px, 2.4vmin, 26px)', fontWeight: 700, color: inkColor, letterSpacing: '0.18em' }}>キャラトーク</div>
         <div style={{ fontSize: 'clamp(12px, 1.6vmin, 16px)', color: subColor, marginTop: 4, letterSpacing: '0.08em' }}>音声に合わせて口パク・まばたきするよ</div>
       </div>
 
@@ -319,6 +354,31 @@ function App() {
         position: 'absolute', top: 18, left: 18, fontSize: 13, fontWeight: 700,
         color: subColor, textDecoration: 'none', letterSpacing: '0.06em'
       }}>← ぐるぐる版</a>
+
+      <label style={{
+        position: 'absolute', top: 16, right: 18,
+        display: 'flex', alignItems: 'center', gap: 8,
+        color: inkColor, fontSize: 13, fontWeight: 700,
+        background: panelBg,
+        border: `1px solid ${lineColor}`,
+        borderRadius: 10, padding: '8px 10px',
+        backdropFilter: 'blur(10px)', cursor: 'default'
+      }}>
+        キャラ
+        <select
+          value={characterId}
+          onChange={(event) => setCharacterId(event.target.value)}
+          style={{
+            font: 'inherit', color: inkColor,
+            background: 'transparent', border: 0, outline: 0,
+            cursor: 'pointer'
+          }}
+        >
+          {charConfig.characters.map((option) => (
+            <option key={option.id} value={option.id}>{option.label}</option>
+          ))}
+        </select>
+      </label>
 
       <TweaksPanel>
         <TweakSection label="口パク"></TweakSection>

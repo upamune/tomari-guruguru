@@ -13,15 +13,25 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 }/*EDITMODE-END*/;
 
 const { rows: ROWS, cols: COLS } = charConfig;
-const SRC = (r, c) => charConfig.src(charConfig.sheets.eyesOpen.close, r, c);
-const BLINK_SRC = (r, c) => charConfig.src(charConfig.sheets.eyesClosed.close, r, c);
-
 const BG_OPTIONS = ['#FFF8EE', '#FDEFEF', '#EEF4FB', '#2B2926'];
+const CHARACTER_STORAGE_KEY = 'tomari-guruguru-character';
 
 function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
 
+function loadCharacterId() {
+  try {
+    const saved = window.localStorage.getItem(CHARACTER_STORAGE_KEY);
+    if (charConfig.characters.some((character) => character.id === saved)) return saved;
+  } catch {
+    // localStorage may be unavailable in restricted browser contexts.
+  }
+  return charConfig.defaultCharacterId;
+}
+
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [characterId, setCharacterId] = useState(loadCharacterId);
+  const [assetMissing, setAssetMissing] = useState(false);
   const [cell, setCell] = useState({ r: 2, c: 2 });
   const [pressed, setPressed] = useState(false);
   const [blink, setBlink] = useState(false);
@@ -31,6 +41,18 @@ function App() {
   const current = useRef({ x: 0, y: 0 });
   const tweaksRef = useRef(t);
   tweaksRef.current = t;
+  const character = charConfig.getCharacter(characterId);
+  const SRC = (r, c) => charConfig.src(character, charConfig.sheets.eyesOpen.close, r, c);
+  const BLINK_SRC = (r, c) => charConfig.src(character, charConfig.sheets.eyesClosed.close, r, c);
+
+  useEffect(() => {
+    setAssetMissing(false);
+    try {
+      window.localStorage.setItem(CHARACTER_STORAGE_KEY, characterId);
+    } catch {
+      // Ignore storage failures; the selector still works for this session.
+    }
+  }, [characterId]);
 
   useEffect(() => {
     function onMove(e) {
@@ -147,10 +169,11 @@ function App() {
       >
         {frames.map(({ r, c }) => (
           <img
-            key={`${r}-${c}`}
+            key={`${character.id}-${r}-${c}`}
             src={SRC(r, c)}
             alt=""
             draggable="false"
+            onError={() => setAssetMissing(true)}
             style={{
               position: 'absolute', inset: 0, width: '100%', height: '100%',
               opacity: r === cell.r && c === cell.c ? 1 : 0,
@@ -160,14 +183,28 @@ function App() {
         ))}
         {blink ? (
           <img
+            key={`${character.id}-blink-${cell.r}-${cell.c}`}
             src={BLINK_SRC(cell.r, cell.c)}
             alt=""
             draggable="false"
+            onError={() => setAssetMissing(true)}
             style={{
               position: 'absolute', inset: 0, width: '100%', height: '100%',
               pointerEvents: 'none'
             }}
           ></img>
+        ) : null}
+        {assetMissing ? (
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: `1px dashed ${subColor}`, borderRadius: 12,
+            color: subColor, fontSize: 'clamp(13px, 2vmin, 18px)', fontWeight: 700,
+            textAlign: 'center', padding: 24, boxSizing: 'border-box',
+            pointerEvents: 'none'
+          }}>
+            {character.label} の画像準備中
+          </div>
         ) : null}
       </div>
 
@@ -175,7 +212,7 @@ function App() {
         position: 'absolute', bottom: '4.5vh', left: 0, right: 0,
         textAlign: 'center', pointerEvents: 'none'
       }}>
-        <div style={{ fontSize: 'clamp(18px, 2.4vmin, 26px)', fontWeight: 700, color: inkColor, letterSpacing: '0.18em' }}>トマリぐるぐる</div>
+        <div style={{ fontSize: 'clamp(18px, 2.4vmin, 26px)', fontWeight: 700, color: inkColor, letterSpacing: '0.18em' }}>キャラぐるぐる</div>
         <div style={{ fontSize: 'clamp(12px, 1.6vmin, 16px)', color: subColor, marginTop: 6, letterSpacing: '0.08em' }}>マウスを動かすと こっちを見るよ</div>
       </div>
 
@@ -184,9 +221,34 @@ function App() {
         color: subColor, textDecoration: 'none', letterSpacing: '0.06em'
       }}>口パク版 →</a>
 
+      <label style={{
+        position: 'absolute', top: 16, left: 16,
+        display: 'flex', alignItems: 'center', gap: 8,
+        color: inkColor, fontSize: 13, fontWeight: 700,
+        background: dark ? 'rgba(48,45,42,0.78)' : 'rgba(255,255,255,0.72)',
+        border: `1px solid ${dark ? 'rgba(255,248,238,0.14)' : 'rgba(60,48,38,0.12)'}`,
+        borderRadius: 10, padding: '8px 10px',
+        backdropFilter: 'blur(10px)', cursor: 'default'
+      }}>
+        キャラ
+        <select
+          value={characterId}
+          onChange={(event) => setCharacterId(event.target.value)}
+          style={{
+            font: 'inherit', color: inkColor,
+            background: 'transparent', border: 0, outline: 0,
+            cursor: 'pointer'
+          }}
+        >
+          {charConfig.characters.map((option) => (
+            <option key={option.id} value={option.id}>{option.label}</option>
+          ))}
+        </select>
+      </label>
+
       {t.showDebug ? (
         <div style={{
-          position: 'absolute', top: 16, left: 16,
+          position: 'absolute', top: 64, left: 16,
           background: 'rgba(0,0,0,0.55)', color: '#fff', borderRadius: 10,
           padding: '10px 12px', fontSize: 12, fontFamily: 'ui-monospace, monospace',
           pointerEvents: 'none', lineHeight: 1.5

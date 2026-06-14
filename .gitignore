@@ -10,6 +10,7 @@ __pycache__/
 node_modules/
 dist/
 public/*
-!public/slices2/
+!public/characters/
+!public/characters/**
 .DS_Store
 Thumbs.db

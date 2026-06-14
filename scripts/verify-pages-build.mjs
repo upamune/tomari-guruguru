@@ -5,6 +5,7 @@ const DIST = 'dist';
 const BASE = '/tomari-guruguru/';
 const HTML_FILES = ['index.html', 'talk.html', 'guruguru.html'];
 const SHEETS = ['A', 'B', 'C', 'D', 'E', 'F'];
+const CHARACTERS = ['upamune', 'michiru_da'];
 
 function fail(message) {
   console.error(`Pages build verification failed: ${message}`);
@@ -46,13 +47,19 @@ function assertReferencedBaseAssetsExist(file, html) {
   }
 }
 
-function assertSliceImages() {
+function assertCharacterSliceImages(characterId) {
+  const baseDir = join(DIST, 'characters', characterId, 'slices');
+  if (!existsSync(baseDir)) return;
+
+  const hasAnySheetDir = SHEETS.some((sheet) => existsSync(join(baseDir, sheet)));
+  if (!hasAnySheetDir) return;
+
   for (const sheet of SHEETS) {
-    const dir = join(DIST, 'slices2', sheet);
+    const dir = join(baseDir, sheet);
     assertFile(dir);
     const webpFiles = readdirSync(dir).filter((name) => name.endsWith('.webp'));
     if (webpFiles.length !== 25) {
-      fail(`${posix.join('dist', 'slices2', sheet)} should contain 25 webp files, found ${webpFiles.length}`);
+      fail(`${posix.join('dist', 'characters', characterId, 'slices', sheet)} should contain 25 webp files, found ${webpFiles.length}`);
     }
     for (let r = 0; r < 5; r += 1) {
       for (let c = 0; c < 5; c += 1) {
@@ -69,6 +76,8 @@ for (const file of HTML_FILES) {
   if (file !== 'index.html') assertBaseAssetReference(file, html);
 }
 
-assertSliceImages();
+for (const characterId of CHARACTERS) {
+  assertCharacterSliceImages(characterId);
+}
 
 console.log('Pages build verification passed.');
