@@ -81,7 +81,7 @@ npm run preview   # ビルド結果をローカル確認
 
 ## フレーム画像の仕組み
 
-このアプリは、キャラクターの向きと表情に応じて `public/slices3/` 内の画像を1枚ずつ切り替えています。
+このアプリは、キャラクターの向きと表情に応じて `public/slices2/` 内の画像を1枚ずつ切り替えています。
 
 ### 25方向
 
@@ -103,7 +103,7 @@ npm run preview   # ビルド結果をローカル確認
 | `E` | 閉じ | 中間 |
 | `F` | 閉じ | 開け |
 
-画像パス例: `slices3/A/r2c2.webp`
+画像パス例: `slices2/A/r2c2.webp`
 
 `src/character-config.js` の `basePath` と `ext` で切り替え可能です。
 
