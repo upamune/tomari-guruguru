@@ -165,19 +165,20 @@ function App() {
             }}
           ></img>
         ))}
-        {blink ? (
-          <img
-            key={`${character.id}-blink-${cell.r}-${cell.c}`}
-            src={BLINK_SRC(cell.r, cell.c)}
-            alt=""
-            draggable="false"
-            onError={() => setAssetMissing(true)}
-            style={{
-              position: 'absolute', inset: 0, width: '100%', height: '100%',
-              pointerEvents: 'none'
-            }}
-          ></img>
-        ) : null}
+        <img
+          key={`${character.id}-blink`}
+          src={BLINK_SRC(cell.r, cell.c)}
+          alt=""
+          draggable="false"
+          onError={() => setAssetMissing(true)}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            opacity: blink ? 1 : 0,
+            transition: 'opacity 70ms ease-out',
+            willChange: 'opacity',
+            pointerEvents: 'none'
+          }}
+        ></img>
         {assetMissing ? (
           <div style={{
             position: 'absolute', inset: 0,

@@ -227,7 +227,8 @@ function App() {
     for (const s of SHEETS) for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) arr.push({ s, r, c });
     return arr;
   }, []);
-  const activeSheet = sheetFor(blink, mouth);
+  const openSheet = sheetFor(false, mouth);
+  const closedSheet = sheetFor(true, mouth);
 
   const dark = t.bgColor === '#2B2926';
   const inkColor = dark ? 'rgba(255,248,238,0.85)' : 'rgba(60,48,38,0.8)';
@@ -250,13 +251,20 @@ function App() {
         maxWidth: 1200, maxHeight: 1200,
         userSelect: 'none', touchAction: 'none'
       }}>
-        {allFrames.map(({ s, r, c }) => (
-          <img key={`${character.id}${s}${r}${c}`} src={SRC(s, r, c)} alt="" draggable="false" onError={() => setAssetMissing(true)} style={{
-            position: 'absolute', inset: 0, width: '100%', height: '100%',
-            opacity: s === activeSheet && r === cell.r && c === cell.c ? 1 : 0,
-            pointerEvents: 'none'
-          }}></img>
-        ))}
+        {allFrames.map(({ s, r, c }) => {
+          const isCurrentCell = r === cell.r && c === cell.c;
+          const isOpenFrame = s === openSheet && isCurrentCell;
+          const isClosedFrame = s === closedSheet && isCurrentCell;
+          return (
+            <img key={`${character.id}${s}${r}${c}`} src={SRC(s, r, c)} alt="" draggable="false" onError={() => setAssetMissing(true)} style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              opacity: isOpenFrame || (isClosedFrame && blink) ? 1 : 0,
+              transition: isClosedFrame ? 'opacity 70ms ease-out' : 'none',
+              willChange: isClosedFrame ? 'opacity' : 'auto',
+              pointerEvents: 'none'
+            }}></img>
+          );
+        })}
         {assetMissing ? (
           <div style={{
             position: 'absolute', inset: 0,
